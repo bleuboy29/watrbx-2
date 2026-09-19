@@ -29,6 +29,9 @@ RUN echo "DB_HOST=\${DB_HOST}" > /var/www/html/.env && \
     echo "DB_PASS=\${DB_PASSWORD}" >> /var/www/html/.env && \
     echo "DB_NAME=\${DB_NAME}" >> /var/www/html/.env
 
+# САМИ СОЗДАЕМ КРИТИЧЕСКИЙ ФАЙЛ phinx.php, КОТОРЫЙ ЗАБЫЛИ РАЗРАБОТЧИКИ
+RUN echo "<?php return ['paths'=>['migrations'=>'%%PHINX_CONFIG_DIR%%/db/migrations'],'environments'=>['default_migration_table'=>'phinxlog','default_environment'=>'production','production'=>['adapter'=>'mysql','host'=>getenv('DB_HOST'),'name'=>getenv('DB_NAME'),'user'=>getenv('DB_USER'),'pass'=>getenv('DB_PASSWORD'),'port'=>getenv('DB_PORT'),'charset'=>'utf8']]];" > /var/www/html/phinx.php
+
 # Включаем модуль rewrite
 RUN a2enmod rewrite
 
@@ -37,11 +40,5 @@ RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
 
-# ПОЛНОСТЬЮ АВТОМАТИЧЕСКИЙ ПОИСК КОНФИГА И ЗАПУСК МИГРАЦИИ
-CMD if [ -f /var/www/html/phinx.php ]; then \
-        /var/www/html/vendor/bin/phinx migrate -c /var/www/html/phinx.php; \
-    elif [ -f /var/www/html/config/phinx.php ]; then \
-        /var/www/html/vendor/bin/phinx migrate -c /var/www/html/config/phinx.php; \
-    else \
-        /var/www/html/vendor/bin/phinx migrate; \
-    fi && apache2-foreground
+# Запускаем созданный нами конфиг напрямую из корня
+CMD /var/www/html/vendor/bin/phinx migrate -c /var/www/html/phinx.php && apache2-foreground
