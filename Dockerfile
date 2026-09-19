@@ -25,17 +25,22 @@ COPY --from=builder /app /var/www/html/
 # Создаем пустой файл базы данных прямо внутри сервера
 RUN mkdir -p /var/www/html/database && touch /var/www/html/database/database.sqlite
 
-# Записываем настройки SQLite в файл .env (Сайт больше не будет просить пароли)
+# ЗАПИСЫВАЕМ НАСТРОЙКИ С ПУСТЫМИ ЗАГЛУШКАМИ (Чтобы init.php не ругался на отсутствие ключей)
 RUN echo "DB_CONNECTION=sqlite" > /var/www/html/.env && \
-    echo "DB_DATABASE=/var/www/html/database/database.sqlite" >> /var/www/html/.env
+    echo "DB_DATABASE=/var/www/html/database/database.sqlite" >> /var/www/html/.env && \
+    echo "DB_HOST=127.0.0.1" >> /var/www/html/.env && \
+    echo "DB_PORT=3306" >> /var/www/html/.env && \
+    echo "DB_USER=root" >> /var/www/html/.env && \
+    echo "DB_PASS=" >> /var/www/html/.env && \
+    echo "DB_NAME=watrbx" >> /var/www/html/.env
 
 # Создаем конфигурацию Phinx под SQLite
 RUN echo "<?php return ['paths'=>['migrations'=>'%%PHINX_CONFIG_DIR%%/db/migrations'],'environments'=>['default_migration_table'=>'phinxlog','default_environment'=>'production','production'=>['adapter'=>'sqlite','name'=>'/var/www/html/database/database.sqlite']]];" > /var/www/html/phinx.php
 
-# Включаем модуль rewrite для корректной работы стилей
+# Включаем модуль rewrite
 RUN a2enmod rewrite
 
-# Выдаем серверу полные права на чтение и запись локальной базы
+# Выдаем серверу полные права
 RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
