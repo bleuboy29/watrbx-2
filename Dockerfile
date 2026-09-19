@@ -37,5 +37,5 @@ RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
 
-# АВТОМАТИЧЕСКИЙ ЗАПУСК МИГРАЦИИ ТАБЛИЦ ПРИ КАЖДОМ СТАРТЕ
-CMD /var/www/html/vendor/bin/phinx migrate && apache2-foreground
+# АВТОМАТИЧЕСКИЙ ЗАПУСК С УКАЗАНИЕМ ТОЧНОГО ПУТИ К КОНФИГУ
+CMD /var/www/html/vendor/bin/phinx migrate -c /var/www/html/config/phinx.php && apache2-foreground
