@@ -37,5 +37,11 @@ RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
 
-# АВТОМАТИЧЕСКИЙ ЗАПУСК С УКАЗАНИЕМ ТОЧНОГО ПУТИ К КОНФИГУ
-CMD /var/www/html/vendor/bin/phinx migrate -c /var/www/html/config/phinx.php && apache2-foreground
+# ПОЛНОСТЬЮ АВТОМАТИЧЕСКИЙ ПОИСК КОНФИГА И ЗАПУСК МИГРАЦИИ
+CMD if [ -f /var/www/html/phinx.php ]; then \
+        /var/www/html/vendor/bin/phinx migrate -c /var/www/html/phinx.php; \
+    elif [ -f /var/www/html/config/phinx.php ]; then \
+        /var/www/html/vendor/bin/phinx migrate -c /var/www/html/config/phinx.php; \
+    else \
+        /var/www/html/vendor/bin/phinx migrate; \
+    fi && apache2-foreground
