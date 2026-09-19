@@ -20,12 +20,16 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 # Копируем все файлы проекта вместе со скачанными библиотеками
 COPY --from=builder /app /var/www/html/
 
-# Создаем файл .env для подключения к нашему ЛОКАЛЬНОМУ MySQL
+# СТВОРЮЄМО ПОВНИЙ .ENV (Додано COOKIE_NAME та всі приховані налаштування сайту)
 RUN echo "DB_HOST=127.0.0.1" > /var/www/html/.env && \
     echo "DB_PORT=3306" >> /var/www/html/.env && \
     echo "DB_USER=root" >> /var/www/html/.env && \
     echo "DB_PASS=watrbxpass" >> /var/www/html/.env && \
-    echo "DB_NAME=watrbx" >> /var/www/html/.env
+    echo "DB_NAME=watrbx" >> /var/www/html/.env && \
+    echo "COOKIE_NAME=watrbx_session" >> /var/www/html/.env && \
+    echo "APP_URL=https://onrender.com" >> /var/www/html/.env && \
+    echo "APP_ENV=production" >> /var/www/html/.env && \
+    echo "APP_KEY=base64:YmFzZTY0X2tleV9leGFtcGxlXzEyMzQ1Njc4OTA=" >> /var/www/html/.env
 
 # Создаем конфигурацию Phinx под локальный mysql
 RUN echo "<?php return ['paths'=>['migrations'=>'%%PHINX_CONFIG_DIR%%/db/migrations'],'environments'=>['default_migration_table'=>'phinxlog','default_environment'=>'production','production'=>['adapter'=>'mysql','host'=>'127.0.0.1','name'=>'watrbx','user'=>'root','pass'=>'watrbxpass','port'=>'3306','charset'=>'utf8']]];" > /var/www/html/phinx.php
