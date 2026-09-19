@@ -1,26 +1,39 @@
-# ЭТАП 1: Скачиваем библиотеки через Composer
-FROM composer:2.5 AS builder
+# ЕТАП 1: Збираємо PHP бібліотеки та компілюємо CSS/JS стилі
+FROM composer:2.5 AS composer-builder
+
+# Копіюємо код проєкту
 COPY . /app
 WORKDIR /app
+
+# Скачуємо всі PHP залежності
 RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs
+
+# Встановлюємо Node.js прямо в цей контейнер для збірки стилів
+RUN apt-get update && apt-get install -y nodejs npm
+
+# Компілюємо стилі сайту (якщо є package.json)
+RUN if [ -f package.json ]; then \
+        npm install --no-audit --no-fund && \
+        (npm run prod || npm run dev || npm run build || true); \
+    fi
 
 # ----------------------------------------------------
 
-# ЭТАП 2: Запускаем сервер со встроенным MySQL (MariaDB) и Apache
+# ЕТАП 2: Запускаємо основний сервер з базою даних та готовим дизайном
 FROM php:8.1-apache
 
-# Устанавливаем MariaDB (локальный MySQL сервер)
+# Устанавливаем MariaDB (локальний MySQL сервер)
 RUN apt-get update && apt-get install -y mariadb-server mariadb-client && docker-php-ext-install mysqli pdo pdo_mysql
 
-# Перенаправляем корневую папку сервера на /public
+# Перенаправляємо кореневу папку сервера на /public
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# Копируем все файлы проекта вместе со скачанными библиотеками
-COPY --from=builder /app /var/www/html/
+# Копіюємо все файли проєкту разом зі ЗГЕНЕРОВАНИМИ СТИЛЯМИ з першого контейнера
+COPY --from=composer-builder /app /var/www/html/
 
-# СТВОРЮЄМО ПОВНИЙ .ENV (Додано COOKIE_NAME та всі приховані налаштування сайту)
+# Створюємо файл .env для налаштування
 RUN echo "DB_HOST=127.0.0.1" > /var/www/html/.env && \
     echo "DB_PORT=3306" >> /var/www/html/.env && \
     echo "DB_USER=root" >> /var/www/html/.env && \
@@ -34,11 +47,11 @@ RUN echo "DB_HOST=127.0.0.1" > /var/www/html/.env && \
 # Создаем конфигурацию Phinx под локальный mysql
 RUN echo "<?php return ['paths'=>['migrations'=>'%%PHINX_CONFIG_DIR%%/db/migrations'],'environments'=>['default_migration_table'=>'phinxlog','default_environment'=>'production','production'=>['adapter'=>'mysql','host'=>'127.0.0.1','name'=>'watrbx','user'=>'root','pass'=>'watrbxpass','port'=>'3306','charset'=>'utf8']]];" > /var/www/html/phinx.php
 
-# ИСПРАВЛЕНИЕ СТИЛЕЙ: Жестко прописываем правильный URL во все конфигурационные файлы сайта
+# Замінюємо localhost на реальний домен у коді сайту
 RUN find /var/www/html -type f -name "*.php" -exec sed -i 's|http://localhost|https://onrender.com|g' {} + && \
     find /var/www/html -type f -name "*.php" -exec sed -i 's|https://localhost|https://onrender.com|g' {} +
 
-# Включаем модуль rewrite
+# Вмикаємо модуль rewrite
 RUN a2enmod rewrite
 RUN chown -R www-data:www-data /var/www/html
 
