@@ -12,19 +12,16 @@ RUN mkdir -p /run/apache2 /var/www/html /run/mysqld /var/lib/mysql
 # Настраиваем Apache на папку public и включаем rewrite модули
 RUN sed -i 's|"/var/www/localhost/htdocs"|"/var/www/html/public"|g' /etc/apache2/httpd.conf && sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/httpd.conf && sed -i 's/#LoadModule rewrite_module/LoadModule rewrite_module/g' /etc/apache2/httpd.conf
 
-# Переходим в рабочую папку
+# Переходим в рабочую搬 папку
 WORKDIR /var/www/html
 
-# СКАЧИВАЕМ ПЕРВУЮ ВЕРСИЮ WATRBX (Команда замаскирована, переводчик её не тронет!)
-RUN rm -rf * && \
-    REPO_USER="jmxamongusmodder" && \
-    REPO_NAME="watrbx" && \
-    git clone https://github.com{REPO_USER}/${REPO_NAME}.git .
+# СКАЧИВАЕМ ПЕРВУЮ ВЕРСИЮ ЧЕРЕЗ АРХИВ (Одной прямой командой без подстановок)
+RUN curl -L https://github.com -o web.zip && unzip web.zip && cp -rf watrbx-main/* . && rm -rf watrbx-main web.zip
 
 # Устанавливаем зависимости проекта через Composer
 RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs --prefer-dist
 
-# Создаем конфигурационный稳定 файл .env
+# Создаем конфигурационный файл .env
 RUN echo "DB_HOST=127.0.0.1" > /var/www/html/.env && echo "DB_PORT=3306" >> /var/www/html/.env && echo "DB_USER=root" >> /var/www/html/.env && echo "DB_PASS=watrbxpass" >> /var/www/html/.env && echo "DB_NAME=watrbx" >> /var/www/html/.env && echo "COOKIE_NAME=watrbx_session" >> /var/www/html/.env && echo "APP_URL=https://onrender.com" >> /var/www/html/.env
 
 # Предоставляем веб-серверу права на чтение стилей и картинок
