@@ -22,11 +22,11 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 # Копируем все файлы проекта вместе со скачанными библиотеками
 COPY --from=builder /app /var/www/html/
 
-# ЖЕСТКО СОЗДАЕМ ФАЙЛ .ENV ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ RENDER
+# ЖЕСТКО СОЗДАЕМ ФАЙЛ .ENV С КЛЮЧОМ DB_PASS (КАК ТРЕБУЕТ САЙТ)
 RUN echo "DB_HOST=\${DB_HOST}" > /var/www/html/.env && \
     echo "DB_PORT=\${DB_PORT}" >> /var/www/html/.env && \
     echo "DB_USER=\${DB_USER}" >> /var/www/html/.env && \
-    echo "DB_PASSWORD=\${DB_PASSWORD}" >> /var/www/html/.env && \
+    echo "DB_PASS=\${DB_PASSWORD}" >> /var/www/html/.env && \
     echo "DB_NAME=\${DB_NAME}" >> /var/www/html/.env
 
 # Включаем модуль rewrite для правильных ссылок и стилей
