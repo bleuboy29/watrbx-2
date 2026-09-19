@@ -1,33 +1,40 @@
-# ЕТАП 1: Скачуємо бібліотеки Composer
-FROM composer:2.5 AS builder
-COPY . /app
-WORKDIR /app
-RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs
+# Используем стабильный и быстрый Alpine Linux вместо проблемного Debian
+FROM php:7.4-fpm-alpine AS base
 
-# ----------------------------------------------------
+# Устанавливаем Apache, MySQL (MariaDB), Git и утилиты сжатия
+RUN apk add --no-cache \
+    apache2 \
+    mariadb \
+    mariadb-client \
+    git \
+    unzip \
+    libzip-dev \
+    bash
 
-# ЕТАП 2: Запускаємо сервер Apache зі вбудованим MySQL (MariaDB)
-FROM php:7.4-apache
+# Забираем чистый готовый Composer из официального контейнера
+FROM composer:2.2 AS composer-builder
+FROM base
+COPY --from=composer-builder /usr/bin/composer /usr/local/bin/composer
 
-# Встановлюємо MariaDB
-RUN apt-get update && apt-get install -y mariadb-server mariadb-client && docker-php-ext-install mysqli pdo pdo_mysql
+# Включаем встроенные модули базы данных MySQL
+RUN docker-php-ext-install mysqli pdo pdo_mysql zip
 
-# Налаштовуємо кореневу папку сервера на /public
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# Создаем папки для работы сервера Apache и базы данных
+RUN mkdir -p /run/apache2 /var/www/html /run/mysqld /var/lib/mysql
 
-# Копіюємо всі файли проєкту
-COPY --from=builder /app /var/www/html/
+# Перенаправляем корневую папку Apache на /public и включаем модуль rewrite для стилей
+RUN sed -i 's|"/var/www/localhost/htdocs"|"/var/www/html/public"|g' /etc/apache2/httpd.conf && \
+    sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/httpd.conf && \
+    sed -i 's/#LoadModule rewrite_module/LoadModule rewrite_module/g' /etc/apache2/httpd.conf
 
-# ВИПРАВЛЕННЯ СТИЛЕЙ: Якщо розробники забули файли, ми примусово завантажуємо оригінальний робочий CSS/JS дизайн
-RUN apt-get install -y wget unzip && \
-    wget https://github.com -O /tmp/watrbx.zip && \
-    unzip /tmp/watrbx.zip -d /tmp/ && \
-    cp -r /tmp/watrbx-main/public/* /var/www/html/public/ || true && \
-    rm -rf /tmp/watrbx*
+# ОЧИЩАЕМ ПАПКУ И СКАЧИВАЕМ ОРИГИНАЛЬНУЮ ПЕРВУЮ ВЕРСИЮ WATRBX СО ВСЕМИ СТИЛЯМИ
+WORKDIR /var/www/html
+RUN rm -rf * && git clone https://github.com .
 
-# Створюємо файл налаштувань .env
+# Скачиваем все необходимые PHP библиотеки через Composer
+RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs --prefer-dist
+
+# Создаем файл настроек .env со всеми скрытыми ключами
 RUN echo "DB_HOST=127.0.0.1" > /var/www/html/.env && \
     echo "DB_PORT=3306" >> /var/www/html/.env && \
     echo "DB_USER=root" >> /var/www/html/.env && \
@@ -36,18 +43,17 @@ RUN echo "DB_HOST=127.0.0.1" > /var/www/html/.env && \
     echo "COOKIE_NAME=watrbx_session" >> /var/www/html/.env && \
     echo "APP_URL=https://onrender.com" >> /var/www/html/.env
 
-# Конфіг міграцій Phinx
-RUN echo "<?php return ['paths'=>['migrations'=>'%%PHINX_CONFIG_DIR%%/db/migrations'],'environments'=>['default_migration_table'=>'phinxlog','default_environment'=>'production','production'=>['adapter'=>'mysql','host'=>'127.0.0.1','name'=>'watrbx','user'=>'root','pass'=>'watrbxpass','port'=>'3306','charset'=>'utf8']]];" > /var/www/html/phinx.php
-
-# Вмикаємо модуль rewrite
-RUN a2enmod rewrite
-RUN chown -R www-data:www-data /var/www/html
+# Выдаем серверу Apache полные права на чтение картинок и стилей
+RUN chown -R apache:apache /var/www/html
 
 EXPOSE 80
 
-# Запуск локальної бази, міграцій та веб-сервера
-CMD service mariadb start && \
+# СКРИПТ АВТО-ЗАПУСКА: Инициализируем локальный MySQL, создаем базу и запускаем веб-сервер
+CMD chown -R mysql:mysql /var/lib/mysql /run/mysqld && \
+    mysql_install_db --user=mysql --datadir=/var/lib/mysql >/dev/null && \
+    mysqld_safe --user=mysql --datadir=/var/lib/mysql & \
+    sleep 5 && \
     mysql -e "CREATE DATABASE IF NOT EXISTS watrbx;" && \
     mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'watrbxpass'; FLUSH PRIVILEGES;" && \
-    /var/www/html/vendor/bin/phinx migrate -c /var/www/html/phinx.php || true && \
-    apache2-foreground
+    if [ -f vendor/bin/phinx ]; then ./vendor/bin/phinx migrate || true; fi && \
+    httpd -D FOREGROUND
