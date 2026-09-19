@@ -1,13 +1,13 @@
 # Беремо готовий робочий Composer
 FROM composer:2.2 AS composer-builder
 
-# Повертаємося до класичного Apache образу, де PHP та стилі вже налаштовані виробником
+# Використовуємо класичний Apache образ
 FROM php:7.4-apache
 
 # Напряму копіюємо готовий Composer в систему
 COPY --from=composer-builder /usr/bin/composer /usr/local/bin/composer
 
-# Вмикаємо вбудовані модулі MySQL (вони вже є в образі, apt-get update НЕ потрібен!)
+# Вмикаємо вбудовані модулі MySQL
 RUN docker-php-ext-install mysqli pdo pdo_mysql
 
 # Перенаправляємо кореневу папку сервера на /public, де лежать стилі та index.php
@@ -18,9 +18,11 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 # Копіюємо всі файли вашого сайту
 COPY . /var/www/html/
 
-# Переходимо в папку сайту і ставимо бібліотеки (ігноруючи системні утиліти)
+# Переходимо в папку сайту
 WORKDIR /var/www/html
-RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs
+
+# ДОДАНО ЖОРСТКИЙ ПРАПОРЕЦЬ --prefer-dist, щоб качати ZIP без git
+RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs --prefer-dist
 
 # Вмикаємо модуль rewrite для правильних посилань
 RUN a2enmod rewrite
