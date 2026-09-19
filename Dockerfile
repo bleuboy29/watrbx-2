@@ -34,6 +34,10 @@ RUN echo "DB_HOST=127.0.0.1" > /var/www/html/.env && \
 # Создаем конфигурацию Phinx под локальный mysql
 RUN echo "<?php return ['paths'=>['migrations'=>'%%PHINX_CONFIG_DIR%%/db/migrations'],'environments'=>['default_migration_table'=>'phinxlog','default_environment'=>'production','production'=>['adapter'=>'mysql','host'=>'127.0.0.1','name'=>'watrbx','user'=>'root','pass'=>'watrbxpass','port'=>'3306','charset'=>'utf8']]];" > /var/www/html/phinx.php
 
+# ИСПРАВЛЕНИЕ СТИЛЕЙ: Жестко прописываем правильный URL во все конфигурационные файлы сайта
+RUN find /var/www/html -type f -name "*.php" -exec sed -i 's|http://localhost|https://onrender.com|g' {} + && \
+    find /var/www/html -type f -name "*.php" -exec sed -i 's|https://localhost|https://onrender.com|g' {} +
+
 # Включаем модуль rewrite
 RUN a2enmod rewrite
 RUN chown -R www-data:www-data /var/www/html
