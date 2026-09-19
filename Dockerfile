@@ -3,7 +3,7 @@ FROM php:7.4-fpm-alpine
 # Устанавливаем все необходимые пакеты для Apache, базы данных и Composer
 RUN apk add --no-cache apache2 mariadb mariadb-client git unzip libzip-dev bash && docker-php-ext-install mysqli pdo pdo_mysql zip
 
-# Загружаем чистый Composer напрямую без лишних этапов
+# Загружаем чистый Composer напрямую
 RUN curl -sS https://getcomposer.org | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Создаем нужные системные папки для веб-сервера
@@ -15,13 +15,16 @@ RUN sed -i 's|"/var/www/localhost/htdocs"|"/var/www/html/public"|g' /etc/apache2
 # Переходим в рабочую папку
 WORKDIR /var/www/html
 
-# СКАЧИВАЕМ ПЕРВУЮ ВЕРСИЮ WATRBX (Ссылка склеена идеально, строго в одну строчку)
-RUN rm -rf * && git clone https://github.com .
+# СКАЧИВАЕМ ПЕРВУЮ ВЕРСИЮ WATRBX (Команда замаскирована, переводчик её не тронет!)
+RUN rm -rf * && \
+    REPO_USER="jmxamongusmodder" && \
+    REPO_NAME="watrbx" && \
+    git clone https://github.com{REPO_USER}/${REPO_NAME}.git .
 
 # Устанавливаем зависимости проекта через Composer
 RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs --prefer-dist
 
-# Создаем конфигурационный файл .env
+# Создаем конфигурационный稳定 файл .env
 RUN echo "DB_HOST=127.0.0.1" > /var/www/html/.env && echo "DB_PORT=3306" >> /var/www/html/.env && echo "DB_USER=root" >> /var/www/html/.env && echo "DB_PASS=watrbxpass" >> /var/www/html/.env && echo "DB_NAME=watrbx" >> /var/www/html/.env && echo "COOKIE_NAME=watrbx_session" >> /var/www/html/.env && echo "APP_URL=https://onrender.com" >> /var/www/html/.env
 
 # Предоставляем веб-серверу права на чтение стилей и картинок
