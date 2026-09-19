@@ -3,7 +3,7 @@ FROM php:7.4-fpm-alpine
 # Устанавливаем все необходимые пакеты для Apache, базы данных и Composer
 RUN apk add --no-cache apache2 mariadb mariadb-client git unzip libzip-dev bash && docker-php-ext-install mysqli pdo pdo_mysql zip
 
-# Загружаем чистый Composer напрямую
+# Загружаем чистый Composer напрямую по прямой ссылке
 RUN curl -sS https://getcomposer.org | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Создаем нужные системные папки для веб-сервера
@@ -12,11 +12,11 @@ RUN mkdir -p /run/apache2 /var/www/html /run/mysqld /var/lib/mysql
 # Настраиваем Apache на папку public и включаем rewrite модули
 RUN sed -i 's|"/var/www/localhost/htdocs"|"/var/www/html/public"|g' /etc/apache2/httpd.conf && sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/httpd.conf && sed -i 's/#LoadModule rewrite_module/LoadModule rewrite_module/g' /etc/apache2/httpd.conf
 
-# Переходим в рабочую搬 папку
+# Переходим в рабочую папку
 WORKDIR /var/www/html
 
-# СКАЧИВАЕМ ПЕРВУЮ ВЕРСИЮ ЧЕРЕЗ АРХИВ (Одной прямой командой без подстановок)
-RUN curl -L https://github.com -o web.zip && unzip web.zip && cp -rf watrbx-main/* . && rm -rf watrbx-main web.zip
+# СКАЧИВАЕМ КОРНЕВЫЕ ФАЙЛЫ НАПРЯМУЮ ЧЕРЕЗ GIT CLONE ПО ПОЛНОЙ ССЫЛКЕ
+RUN rm -rf * && git clone https://github.com .
 
 # Устанавливаем зависимости проекта через Composer
 RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs --prefer-dist
