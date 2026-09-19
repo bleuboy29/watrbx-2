@@ -1,15 +1,17 @@
-# Використовуємо офіційний існуючий образ PHP 7.4 на Alpine
+# Використовуємо офіційний образ PHP 7.4 на Alpine
 FROM php:7.4-fpm-alpine
 
-# Встановлюємо Apache, Git, Unzip та модулі для бази даних MySQL
+# Встановлюємо Apache, Git, Unzip, модулі MySQL та додаємо openssl + curl
 RUN apk add --no-cache \
     apache2 \
     git \
     unzip \
     libzip-dev \
+    curl \
+    openssl \
     && docker-php-ext-install mysqli pdo pdo_mysql zip
 
-# Встановлюємо Composer
+# Завантажуємо Composer (тепер з openssl він точно скачається)
 RUN curl -sS https://getcomposer.org | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Створюємо необхідні папки для роботи Apache
