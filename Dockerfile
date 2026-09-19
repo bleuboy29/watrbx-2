@@ -1,18 +1,19 @@
-# Використовуємо офіційний образ PHP 7.4 на Alpine
+# Беремо офіційний робочий образ Composer і називаємо його будівельником
+FROM composer:2.2 AS composer-builder
+
+# Основний образ нашого сервера
 FROM php:7.4-fpm-alpine
 
-# Встановлюємо Apache, Git, Unzip, модулі MySQL та додаємо openssl + curl
+# ПЕРЕНЕСЕННЯ ГОТОВОГО COMPOSER (Він гарантовано буде всередині системи)
+COPY --from=composer-builder /usr/bin/composer /usr/local/bin/composer
+
+# Встановлюємо Apache, Git, Unzip та модулі для бази даних MySQL
 RUN apk add --no-cache \
     apache2 \
     git \
     unzip \
     libzip-dev \
-    curl \
-    openssl \
     && docker-php-ext-install mysqli pdo pdo_mysql zip
-
-# Завантажуємо Composer (тепер з openssl він точно скачається)
-RUN curl -sS https://getcomposer.org | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Створюємо необхідні папки для роботи Apache
 RUN mkdir -p /run/apache2
@@ -24,8 +25,10 @@ RUN sed -i 's|"/var/www/localhost/htdocs"|"/var/www/html/public"|g' /etc/apache2
 # Копіюємо всі файли вашого сайту в контейнер
 COPY . /var/www/html/
 
-# Переходимо в папку проєкту та запускаємо Composer
+# Переходимо в папку проєкту
 WORKDIR /var/www/html
+
+# Запускаємо Composer (Тепер він точно запуститься)
 RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs
 
 # Надаємо серверу права на файли
